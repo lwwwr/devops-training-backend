@@ -58,6 +58,23 @@ The repository contains a lot of test cases to cover both api test and repositor
 
     ./gradlew test
 
+#Additional configuration
+
+To start project with 
+
+    ./gradlew bootRun
+or
+    
+    ./gradle build && java -jar ./build/lib/*.jar 
+
+you need to define next environment variables:
+```
+DB_USERNAME - username which will be used to connect to MySQL DB instance
+DB_PASSWORD - password which will be used to connect to MySQL DB instance
+DB_URL      - url by which application can access MySQL
+DB_PORT     - port by which application can access MySQL
+DB_NAME     - database name which will be used to store information
+```
 # Help
 
 Please fork and PR to improve the code.
