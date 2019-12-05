@@ -7,6 +7,7 @@ buildscript {
 	}
 	dependencies {
 		classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
+		classpath 'de.aaschmid:gradle-cpd-plugin:1.2'
 	}
 }
 
@@ -15,6 +16,11 @@ apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
+apply plugin: 'pmd'
+apply plugin: 'cpd'
+apply plugin: 'findbugs'
+apply plugin: 'maven'
+apply plugin: 'maven-publish'
 
 dependencyManagement {
     imports {
@@ -22,20 +28,84 @@ dependencyManagement {
     }
     applyMavenExclusions = false
 }
-
-version = '0.0.1-SNAPSHOT'
+project.archivesBaseName = "backend"
+if (project.hasProperty('projectVersion')) {
+	project.version = project.projectVersion
+} else {
+	project.version = '0.0.1-RELEASE'
+}
 sourceCompatibility = JavaVersion.VERSION_1_8
 targetCompatibility = JavaVersion.VERSION_1_8
-
 repositories {
+	maven {
+		url = "https://nexus.test.coherentprojects.net/repository/maven-central/"
+		credentials {
+			username "${nexus_username}"
+			password "${nexus_password}"
+		}
+	}
 	mavenCentral()
 }
 
-tasks.withType(FindBugs) {
-    reports {
-        xml.enabled false
-        html.enabled true
-    }
+publishing {
+	publications {
+		maven(MavenPublication) {
+			groupId = 'by.brest.project'
+			artifactId = 'devops-training-backend'
+			version = '0.0.1-SNAPSHOT'
+
+			from components.java
+		}
+	}
+
+	repositories {
+		maven {
+			name = 'devops'
+			url = "https://nexus.test.coherentprojects.net/nexus/service/local/devops"
+		}
+	}
+}
+
+findbugsMain() {
+	enabled = true
+	ignoreFailures = true
+	reports {
+		xml.enabled = true
+	}
+}
+
+findbugsTest() {
+	enabled = true
+	ignoreFailures = true
+	reports {
+		xml.enabled = true
+	}
+}
+
+pmdMain() {
+	enabled = true
+	reports {
+		xml.enabled = true
+		html.enabled = false
+	}
+}
+
+pmdTest() {
+	enabled = true
+	reports {
+		xml.enabled = true
+		html.enabled = false
+	}
+}
+
+cpdCheck() {
+	enabled = true
+	ignoreFailures = true
+	reports {
+		csv.enabled = false
+		text.enabled = false
+		xml.enabled = true
+	}
 }
 
 dependencies {
@@ -56,4 +126,8 @@ dependencies {
 	testCompile('org.springframework.boot:spring-boot-starter-test')
 	testCompile('org.springframework.restdocs:spring-restdocs-mockmvc')
     testCompile('org.mybatis.spring.boot:mybatis-spring-boot-starter-test:1.3.2')
+//	compile group: 'de.aaschmid', name: 'gradle-cpd-plugin', version: '3.1'
+// https://mvnrepository.com/artifact/com.google.code.findbugs/findbugs
+	compile group: 'com.google.code.findbugs', name: 'findbugs', version: '3.0.1'
+
 }

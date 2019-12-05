@@ -1,0 +1,85 @@
+pipeline {
+
+    agent {
+        docker {
+            image "docker-java-agent:1.0.0"
+        }
+    }
+
+    stages {
+
+        stage('Choose input params') {
+            steps {
+                script {
+                    def branches = sh returnStdout: true, script: "git branch -r"
+                    
+                    def branch_choices = []
+                    branches.split("\n").each { branch ->
+                        branch_choices += branch.replaceAll("\\s+", "")
+                    }
+                    def branch_choice_param = new ChoiceParameterDefinition("Branch name", "Branch name which will be deployed")
+                    branch_choice_param.setChoices(branch_choices)
+
+                    def env_choice_param = new ChoiceParameterDefinition('Environment variable', "Where chosen branch should be deployed")
+                    env_choice_param.setChoices(['dev', 'prod'])
+
+                    def userInput = input id: 'Input', message: 'Choose deployment config', parameters: [branch_choice_param, env_choice_param]
+
+                    print userInput["Branch name"]
+                    def chosen_branch = userInput["Branch name"]
+                    print userInput["Environment variable"]
+                    def chosen_env = userInput["Environment variable"]
+
+                    sh "git checkout $chosen_branch"
+                }
+            }
+        }
+
+        stage('Compile project') {
+            steps {
+                sh "./gradlew compileJava"
+            }
+        }
+
+        stage('Code quality check') {
+            steps {
+                sh "./gradlew test pmdMain pmdTest cpdCheck findbugsMain findbugsTest"
+                recordIssues enabledForFailure: true, tools: [cpd(pattern: '**/cpdCheck.xml')]
+                recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/findbugs/**.xml', useRankAsPriority: true)]
+                recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/pmd/**.xml')]
+            }
+        }
+
+        stage('Build project') {
+            steps {
+                sh "cp -f src/test/resources/application.properties src/main/resources/application.properties"
+                sh "./gradlew build -x test -x pmdMain -x pmdTest -x cpdCheck -x findbugsMain -x findbugsTest -PprojectVersion=${BUILD_NUMBER}"
+
+            }
+        }
+
+        stage('Push to Nexus') {
+            steps {
+                script {
+                    dir('build/libs') {
+                        def artifact_name = "backend-${BUILD_NUMBER}"
+                        nexusArtifactUploader artifacts: [[artifactId: 'devops-training-backend', classifier: 'jar', file: "${artifact_name}.jar", type: 'jar']], credentialsId: 'nexus_cred', groupId: 'by.brest.project', nexusUrl: 'nexus-solodukha.test.coherentprojects.net/', nexusVersion: 'nexus3', protocol: 'https', repository: 'training', version: "${BUILD_NUMBER}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to server') {
+            when {
+                 allOf {
+                     expression { currentBuild.number % 5 == 0 }
+                 }
+            }
+            steps {
+                script {
+                    sh ""
+                }
+            }
+        }
+    }
+}

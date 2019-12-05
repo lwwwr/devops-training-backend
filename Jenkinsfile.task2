@@ -1,0 +1,57 @@
+pipeline {
+
+    agent {
+        docker {
+            image "docker-java-agent:1.0.0"
+        }
+    }
+
+    stages {
+        stage('Compile project') {
+            steps {
+                sh "./gradlew compileJava"
+            }
+        }
+
+        stage('Code quality check') {
+            steps {
+                sh "./gradlew test pmdMain pmdTest cpdCheck findbugsMain findbugsTest"
+                recordIssues enabledForFailure: true, tools: [cpd(pattern: '**/cpdCheck.xml')]
+                recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/findbugs/**.xml', useRankAsPriority: true)]
+                recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/pmd/**.xml')]
+            }
+        }
+
+        stage('Build project') {
+            steps {
+                sh "cp -f src/test/resources/application.properties src/main/resources/application.properties"
+                sh "./gradlew build -x test -x pmdMain -x pmdTest -x cpdCheck -x findbugsMain -x findbugsTest -PprojectVersion=${BUILD_NUMBER}"
+
+            }
+        }
+
+        stage('Push to Nexus') {
+            steps {
+                script {
+                    dir('build/libs') {
+                        def artifact_name = "backend-${BUILD_NUMBER}"
+                        nexusArtifactUploader artifacts: [[artifactId: 'devops-training-backend', classifier: 'jar', file: "${artifact_name}.jar", type: 'jar']], credentialsId: 'nexus_cred', groupId: 'by.brest.project', nexusUrl: 'nexus-solodukha.test.coherentprojects.net/', nexusVersion: 'nexus3', protocol: 'https', repository: 'training', version: "${BUILD_NUMBER}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to server') {
+            steps {
+                script {
+                    def environment = "dev"
+                    if ("${BUILD_BRANCH}" == "master") {
+                        environment = "prod"
+                    }
+
+                    sh "echo $environment"
+                }
+            }
+        }
+    }
+}

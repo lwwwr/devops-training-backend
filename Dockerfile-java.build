@@ -1,0 +1,11 @@
+# docker build . -f Dockerfile-java.build --rm -t docker-java-agent:1.0.0
+FROM python:3.7-stretch
+
+RUN pip3 install awscli --upgrade --user \
+    && apt update \
+    && apt install openjdk-8-jdk -y \
+    && apt-get clean --dry-run
+
+ENV PATH=$PATH:/root/.local/bin
+ENV JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+ENV PATH=$PATH:$JAVA_HOME/bin
