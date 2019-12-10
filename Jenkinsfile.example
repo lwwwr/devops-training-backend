@@ -23,9 +23,9 @@ pipeline {
         stage('Tests') {
             steps {
                 sh "./gradlew test"
-                sh "recordIssues(enabledForFailure: true, tools: [cpd(pattern: '**/build/reports/cpd/**.xml')])"
-                sh "recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/build/reports/findbugs/**.xml', useRankAsPriority: true)]"
-                sh "recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/reports/pmd/**.xml')]"
+                recordIssues enabledForFailure: true, tools: [cpd(pattern: '**/build/reports/cpd/**.xml')]
+                recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/build/reports/findbugs/**.xml', useRankAsPriority: true)]
+                recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/reports/pmd/**.xml')]
             }
         }
 
