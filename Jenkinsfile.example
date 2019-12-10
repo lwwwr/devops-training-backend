@@ -23,6 +23,9 @@ pipeline {
         stage('Tests') {
             steps {
                 sh "./gradlew test"
+                sh "recordIssues(enabledForFailure: true, tools: [cpd(pattern: '**/build/reports/cpd/**.xml')])"
+                sh "recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/build/reports/findbugs/**.xml', useRankAsPriority: true)]"
+                sh "recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/reports/pmd/**.xml')]"
             }
         }
 
@@ -45,6 +48,7 @@ pipeline {
                  }
             }
             steps {
+                sh ""
                 // withCredentials([file(credentialsId: 'sandbox', variable: 'pem_file')]) {
                     // sh "ls -l"
                     // sh "ls -l build"
