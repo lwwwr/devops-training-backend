@@ -2,51 +2,100 @@ pipeline {
 
     agent {
         docker {
-            image "openjdk:8"
+            image "docker-agent:1.0.0"
         }
     }
 
     stages {
-        stage('Preparations') {
-            steps {
-                sh "apt update && apt install -y ssh"
-            }
-        }
 
-        stage('Compile project') {
+        stage('Choose input params') {
             steps {
-                sh "cp -f src/test/resources/application.properties src/main/resources/application.properties"
-                sh "./gradlew build -x test"
-            }
-        }
+                script {
+                    def branches = sh returnStdout: true, script: "git branch -r"
+                    
+                    def branch_choices = []
+                    branches.split("\n").each { branch ->
+                        branch_choices += branch.replaceAll("\\s+", "")
+                    }
+                    def branch_choice_param = new ChoiceParameterDefinition("Branch name", "Branch name which will be deployed")
+                    branch_choice_param.setChoices(branch_choices)
 
-        stage('SonaQube') {
-            steps {
-                sh ""
-            }
-        }
+                    def env_choice_param = new ChoiceParameterDefinition('Environment variable', "Where chosen branch should be deployed")
+                    env_choice_param.setChoices(['dev', 'prod'])
 
-        stage('Push to Nexus') {
-            steps {
-                sh ""
-            }
-        }
+                    def userInput = input id: 'Input', message: 'Choose deployment config', parameters: [branch_choice_param, env_choice_param]
 
-        stage('Deploy to server') {
-            when {
-                 allOf {
-                     expression { currentBuild.number % 5 == 0 }
-                 }
-            }
-            steps {
-                withCredentials([file(credentialsId: 'sandbox', variable: 'pem_file')]) {
-                    sh "ls -l"
-                    sh "ls -l build"
-                    sh "ls -l build/libs"
-                    sh "scp -o StrictHostKeyChecking=no -i ${pem_file} build/libs/*.jar ubuntu@10.0.0.82:/home/ubuntu/projects/"
-                    sh "rsh -o StrictHostKeyChecking=no -i ${pem_file} ubuntu@10.0.0.82 \"bash ./script.sh &\""
+                    print userInput["Branch name"]
+                    def chosen_branch = userInput["Branch name"]
+                    print userInput["Environment variable"]
+                    def chosen_env = userInput["Environment variable"]
+
+                    sh "git checkout -b $chosen_branch"
                 }
             }
         }
+
+        // stage('Compile project') {
+        //     steps {
+        //         sh "./gradlew compileJava"
+        //     }
+        // }
+
+        // stage('Code quality check') {
+        //     steps {
+        //         sh "./gradlew test pmdMain pmdTest cpdCheck findbugsMain findbugsTest"
+        //         recordIssues enabledForFailure: true, tools: [cpd(pattern: '**/cpdCheck.xml')]
+        //         recordIssues enabledForFailure: true, tools: [findBugs(pattern: '**/findbugs/**.xml', useRankAsPriority: true)]
+        //         recordIssues enabledForFailure: true, tools: [pmdParser(pattern: '**/pmd/**.xml')]
+        //     }
+        // }
+
+        // stage('Build project') {
+        //     steps {
+        //         sh "cp -f src/test/resources/application.properties src/main/resources/application.properties"
+        //         sh "./gradlew build -x test -x pmdMain -x pmdTest -x cpdCheck -x findbugsMain -x findbugsTest -PprojectVersion=${BUILD_NUMBER}"
+
+        //     }
+        // }
+
+        // stage('Push to Nexus') {
+        //     steps {
+        //         script {
+        //             dir('build/libs') {
+        //                 def artifact_name = "backend-${BUILD_NUMBER}"
+        //                 nexusArtifactUploader artifacts: [[artifactId: 'devops-training-backend', classifier: 'jar', file: "${artifact_name}.jar", type: 'jar']], credentialsId: 'nexus_cred', groupId: 'by.brest.project', nexusUrl: 'nexus.test.coherentprojects.net/', nexusVersion: 'nexus3', protocol: 'https', repository: 'devops', version: '0.0.1-SNAPSHOT'
+        //             }
+        //         }
+        //     }
+        // }
+
+        // stage('Deploy to server') {
+        //     when {
+        //          allOf {
+        //              expression { currentBuild.number % 5 == 0 }
+        //          }
+        //     }
+        //     steps {
+        //         script {
+        //             withCredentials([file(credentialsId: 'sandbox', variable: 'pem_file')]) {
+        //                 //aws magic
+        //                 //need another agent
+        //                 withCredentials([usernamePassword(credentialsId: 'aws_cred', passwordVariable: 'secret', usernameVariable: 'key')]) {
+        //                     sh "aws configure set aws_access_key_id $key"
+        //                     sh "aws configure set aws_secret_access_key $secret"
+        //                     aws_response = sh returnStdout: true, script: "aws sts assume-role --role-arn \"arn:aws:iam::242906888793:role/AWS_Sandbox\" --role-session-name AWS_Sandbox"
+        //                     aws_session_key_id = (aws_response =~ '\"AccessKeyId\": \"(.+?)\"')[0][1]
+        //                     aws_session_secret_id = (aws_response =~ '\"SecretAccessKey\": \"(.+?)\"')[0][1]
+        //                     aws_session_token = (aws_response =~ '\"SessionToken\": \"(.+?)\"')[0][1]
+        //                     sh "aws configure set aws_access_key_id $aws_session_key_id"
+        //                     sh "aws configure set aws_secret_access_key $aws_session_secret_id"
+        //                     sh "aws configure set aws_session_token $aws_session_token"
+        //                     sh "aws configure set region us-east-1"
+        //                     sh "aws ec2 describe-instances --filters Name=tag:coherent:owner,Values=pavelsolodukha@coherentsolutions.com,Name=tag:Name,Values=Jenkins-us-east-1a --query Reservations[*].Instances[*].PrivateIpAddress --output text"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
