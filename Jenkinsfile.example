@@ -16,13 +16,19 @@ pipeline {
         stage('Compile project') {
             steps {
                 sh "cp -f src/test/resources/application.properties src/main/resources/application.properties"
-                sh "./gradlew build -x test"
+                sh "./gradlew compileJava"
             }
         }
 
-        stage('SonaQube') {
+        stage('Tests') {
             steps {
-                sh ""
+                sh "./gradlew test"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh "./gradlew build -x test"
             }
         }
 
@@ -39,13 +45,13 @@ pipeline {
                  }
             }
             steps {
-                withCredentials([file(credentialsId: 'sandbox', variable: 'pem_file')]) {
-                    sh "ls -l"
-                    sh "ls -l build"
-                    sh "ls -l build/libs"
-                    sh "scp -o StrictHostKeyChecking=no -i ${pem_file} build/libs/*.jar ubuntu@10.0.0.82:/home/ubuntu/projects/"
-                    sh "rsh -o StrictHostKeyChecking=no -i ${pem_file} ubuntu@10.0.0.82 \"bash ./script.sh &\""
-                }
+                // withCredentials([file(credentialsId: 'sandbox', variable: 'pem_file')]) {
+                    // sh "ls -l"
+                    // sh "ls -l build"
+                    // sh "ls -l build/libs"
+                    // sh "scp -o StrictHostKeyChecking=no -i ${pem_file} build/libs/*.jar ubuntu@10.0.0.82:/home/ubuntu/projects/"
+                    // sh "rsh -o StrictHostKeyChecking=no -i ${pem_file} ubuntu@10.0.0.82 \"bash ./script.sh &\""
+                // }
             }
         }
     }
